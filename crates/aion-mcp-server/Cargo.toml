@@ -1,0 +1,23 @@
+[package]
+name = "aion-mcp-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Standalone MCP server binary spawned by AI agents via stdio"
+
+[[bin]]
+name = "aion-mcp-server"
+path = "src/main.rs"
+
+[dependencies]
+aion-common = { path = "../aion-common" }
+aion-mount = { path = "../aion-mount" }
+rmcp = { workspace = true }
+tokio = { workspace = true }
+kube = { workspace = true }
+k8s-openapi = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

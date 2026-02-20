@@ -1,0 +1,15 @@
+[package]
+name = "aion-ebpf-common"
+version = "0.1.0"
+edition = "2021"
+description = "Shared types between eBPF kernel programs and userspace loaders"
+
+# This crate must be #![no_std] compatible for use in eBPF programs.
+# It is part of the workspace for userspace builds.
+
+[features]
+default = []
+# Enable userspace-only features (std, serde, etc.)
+userspace = []
+
+[dependencies]

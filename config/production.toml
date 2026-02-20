@@ -1,0 +1,12 @@
+# AION Production Overrides
+# Layered on top of default.toml
+
+[daemon]
+log_level = "warn"
+
+[observe]
+poll_interval_secs = 5
+
+[pipeline]
+max_concurrent_mounts = 5
+canary_duration_secs = 60

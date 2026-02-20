@@ -1,0 +1,19 @@
+[package]
+name = "aion-validate"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Policy validation chain for AION proposals"
+
+[dependencies]
+aion-common = { path = "../aion-common" }
+aion-propose = { path = "../aion-propose" }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+async-trait = { workspace = true }
+
+[dev-dependencies]
+mockall = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }
+serde_json = { workspace = true }

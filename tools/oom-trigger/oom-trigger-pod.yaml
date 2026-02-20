@@ -1,0 +1,26 @@
+# Test Pod: Deploy with tight memory limits to trigger OOM
+# Usage: kubectl apply -f oom-trigger-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: oom-trigger-test
+  namespace: default
+  labels:
+    app: oom-trigger
+    aion.dev/test: "true"
+spec:
+  restartPolicy: Never
+  containers:
+    - name: oom-trigger
+      image: aion/oom-trigger:latest
+      imagePullPolicy: IfNotPresent
+      env:
+        - name: OOM_ALLOC_MB
+          value: "512"
+        - name: OOM_DELAY_SECS
+          value: "3"
+      resources:
+        requests:
+          memory: 32Mi
+        limits:
+          memory: 64Mi

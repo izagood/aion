@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aion-system
+  labels:
+    app.kubernetes.io/name: aion
+    app.kubernetes.io/part-of: aion

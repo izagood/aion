@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package aion.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Severity of a detected anomaly
+enum Severity {
+  SEVERITY_UNSPECIFIED = 0;
+  SEVERITY_INFO = 1;
+  SEVERITY_WARNING = 2;
+  SEVERITY_CRITICAL = 3;
+}
+
+// Types of infrastructure events
+enum EventKind {
+  EVENT_KIND_UNSPECIFIED = 0;
+  EVENT_KIND_OOM_KILL = 1;
+  EVENT_KIND_CPU_THROTTLE = 2;
+  EVENT_KIND_MEMORY_PRESSURE = 3;
+  EVENT_KIND_DISK_PRESSURE = 4;
+  EVENT_KIND_POD_CRASH_LOOP = 5;
+  EVENT_KIND_NODE_NOT_READY = 6;
+}
+
+// Infrastructure event detected by the observation layer
+message InfraEvent {
+  string event_id = 1;
+  EventKind kind = 2;
+  Severity severity = 3;
+  google.protobuf.Timestamp detected_at = 4;
+
+  // Source identification
+  string node_name = 5;
+  string namespace = 6;
+  string pod_name = 7;
+  string container_name = 8;
+
+  // OOM-specific fields
+  OomEventDetails oom_details = 10;
+
+  // Generic key-value metadata
+  map<string, string> labels = 15;
+}
+
+// OOM kill specific details
+message OomEventDetails {
+  uint32 pid = 1;
+  string comm = 2;            // process name
+  uint64 total_pages = 3;     // total VM pages
+  uint64 rss_pages = 4;       // resident set size in pages
+  uint32 oom_score_adj = 5;
+  uint64 memory_limit_bytes = 6;
+  uint64 memory_usage_bytes = 7;
+}
+
+// Resource utilization snapshot
+message ResourceUtilization {
+  string node_name = 1;
+  google.protobuf.Timestamp timestamp = 2;
+
+  // CPU
+  double cpu_usage_percent = 3;
+  int64 cpu_capacity_millicores = 4;
+  int64 cpu_allocatable_millicores = 5;
+  int64 cpu_requested_millicores = 6;
+
+  // Memory
+  int64 memory_usage_bytes = 7;
+  int64 memory_capacity_bytes = 8;
+  int64 memory_allocatable_bytes = 9;
+  int64 memory_requested_bytes = 10;
+
+  // Pods
+  int32 pod_count = 11;
+  int32 pod_capacity = 12;
+}

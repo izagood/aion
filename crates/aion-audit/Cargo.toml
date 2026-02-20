@@ -1,0 +1,21 @@
+[package]
+name = "aion-audit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Hash-chain based audit logging"
+
+[dependencies]
+aion-common = { path = "../aion-common" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+sha2 = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }

@@ -1,0 +1,53 @@
+# ClusterRole: read-only access for observation + write access for remediation
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: aion-agent
+  labels:
+    app.kubernetes.io/name: aion-agent
+    app.kubernetes.io/part-of: aion
+rules:
+  # Read-only: observation & analysis
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "nodes", "events", "namespaces", "services", "configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list"]
+
+  # Write: remediation actions
+  - apiGroups: [""]
+    resources: ["pods/eviction"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["delete"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["patch"]  # cordon/uncordon
+  - apiGroups: ["apps"]
+    resources: ["deployments", "deployments/scale"]
+    verbs: ["patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["statefulsets", "statefulsets/scale"]
+    verbs: ["patch", "update"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: aion-agent
+  labels:
+    app.kubernetes.io/name: aion-agent
+    app.kubernetes.io/part-of: aion
+subjects:
+  - kind: ServiceAccount
+    name: aion-agent
+    namespace: aion-system
+roleRef:
+  kind: ClusterRole
+  name: aion-agent
+  apiGroup: rbac.authorization.k8s.io

@@ -1,0 +1,69 @@
+# AION Agent Registration Configuration
+
+[global]
+daily_budget_usd = 50.0
+default_timeout_secs = 120
+mcp_server_binary = "./target/release/aion-mcp-server"
+
+[permission_policy]
+low_risk = "validate_and_execute"
+medium_risk = "validate_and_execute"
+high_risk = "require_approval"
+
+# ── Agent Definitions ──
+
+[[agents]]
+id = "claude-primary"
+kind = "claude_code"
+display_name = "Claude Code (Primary)"
+binary_path = "/usr/local/bin/claude"
+model = "sonnet"
+enabled = true
+priority = 1
+max_tokens = 100000
+timeout_secs = 180
+max_cost_usd = 0.50
+specializations = ["oom_analysis", "resource_optimization", "capacity_planning"]
+capabilities = ["infra_analysis", "remediation_proposal", "oom_analysis"]
+
+[[agents]]
+id = "codex-primary"
+kind = "codex_cli"
+display_name = "Codex CLI"
+binary_path = "/usr/local/bin/codex"
+model = "gpt-5-codex"
+enabled = true
+priority = 2
+max_tokens = 100000
+timeout_secs = 180
+max_cost_usd = 0.40
+specializations = ["scheduling_analysis", "resource_optimization"]
+capabilities = ["infra_analysis", "remediation_proposal"]
+
+[[agents]]
+id = "gemini-primary"
+kind = "gemini_cli"
+display_name = "Gemini CLI"
+binary_path = "/usr/local/bin/gemini"
+model = "gemini-2.5-pro"
+enabled = true
+priority = 3
+max_tokens = 100000
+timeout_secs = 180
+max_cost_usd = 0.30
+specializations = ["capacity_planning"]
+capabilities = ["infra_analysis", "remediation_proposal"]
+
+# ── Budget Limits ──
+
+[budget.claude_code]
+max_invocations_per_hour = 20
+max_concurrent = 3
+
+[budget.codex_cli]
+max_invocations_per_hour = 20
+max_concurrent = 3
+
+[budget.gemini_cli]
+max_invocations_per_hour = 30
+max_concurrent = 5

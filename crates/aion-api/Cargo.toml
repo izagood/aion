@@ -1,0 +1,31 @@
+[package]
+name = "aion-api"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "gRPC (tonic) + REST (axum) API server for AION"
+
+[dependencies]
+aion-common = { path = "../aion-common" }
+aion-propose = { path = "../aion-propose" }
+aion-validate = { path = "../aion-validate" }
+aion-execute = { path = "../aion-execute" }
+aion-audit = { path = "../aion-audit" }
+aion-mount = { path = "../aion-mount" }
+tokio = { workspace = true }
+tonic = { workspace = true }
+prost = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+
+[build-dependencies]
+tonic-build = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }

@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aion-config
+  namespace: aion-system
+  labels:
+    app.kubernetes.io/name: aion-agent
+    app.kubernetes.io/part-of: aion
+data:
+  default.toml: |
+    [daemon]
+    listen_addr = "0.0.0.0"
+    grpc_port = 50051
+    rest_port = 8080
+    log_level = "info"
+    audit_dir = "/var/lib/aion/audit"
+
+    [observe]
+    enable_ebpf = true
+    enable_cgroup = true
+    enable_kube_watcher = true
+    poll_interval_secs = 10
+
+    [pipeline]
+    max_concurrent_mounts = 3
+    canary_duration_secs = 30
+
+  agents.toml: |
+    [global]
+    daily_budget_usd = 50.0
+    default_timeout_secs = 120
+    mcp_server_binary = "/usr/local/bin/aion-mcp-server"
+
+    [permission_policy]
+    low_risk = "validate_and_execute"
+    medium_risk = "validate_and_execute"
+    high_risk = "require_approval"
+
+    [[agents]]
+    id = "claude-primary"
+    kind = "claude_code"
+    display_name = "Claude Code (Primary)"
+    binary_path = "/usr/local/bin/claude"
+    model = "sonnet"
+    enabled = true
+    priority = 1
+    max_tokens = 100000
+    timeout_secs = 180
+    max_cost_usd = 0.50
+    specializations = ["oom_analysis", "resource_optimization", "capacity_planning"]
+    capabilities = ["infra_analysis", "remediation_proposal", "oom_analysis"]
+
+    [budget.claude_code]
+    max_invocations_per_hour = 20
+    max_concurrent = 3

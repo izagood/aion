@@ -1,0 +1,30 @@
+[package]
+name = "aion-mount"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Agent Mount system - registry, MCP server, launcher, governor, permission, selector, validator, pipeline"
+
+[dependencies]
+aion-common = { path = "../aion-common" }
+aion-propose = { path = "../aion-propose" }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+tokio-util = { workspace = true }
+rmcp = { workspace = true }
+kube = { workspace = true }
+k8s-openapi = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+futures = { workspace = true }
+async-trait = { workspace = true }
+
+[dev-dependencies]
+mockall = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }

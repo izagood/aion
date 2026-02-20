@@ -1,0 +1,104 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/aion-common",
+    "crates/aion-observe",
+    # "crates/aion-ebpf",  # no_std, built separately via xtask
+    "crates/aion-ebpf-common",
+    "crates/aion-mount",
+    "crates/aion-propose",
+    "crates/aion-validate",
+    "crates/aion-execute",
+    "crates/aion-capability",
+    "crates/aion-audit",
+    "crates/aion-api",
+    "crates/aion-mcp-server",
+    "crates/aion-agent",
+    "xtask",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "Apache-2.0"
+repository = "https://github.com/aion-infra/aion"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Configuration
+config = "0.14"
+toml = "0.8"
+
+# Kubernetes
+kube = { version = "0.98", features = ["runtime", "derive", "client"] }
+k8s-openapi = { version = "0.24", features = ["v1_32"] }
+
+# gRPC + Protobuf
+tonic = "0.12"
+tonic-build = "0.12"
+prost = "0.13"
+prost-types = "0.13"
+
+# HTTP / REST
+axum = { version = "0.8" }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+hyper = { version = "1" }
+
+# MCP
+rmcp = { version = "0.16", features = ["server", "transport-io", "macros"] }
+
+# eBPF (userspace loader)
+aya = "0.13"
+aya-log = "0.2"
+
+# Observability
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+# Crypto / Hashing
+sha2 = "0.10"
+hmac = "0.12"
+rand = "0.8"
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Unique IDs
+uuid = { version = "1", features = ["v4", "serde"] }
+ulid = { version = "1", features = ["serde"] }
+
+# Async utilities
+futures = "0.3"
+async-trait = "0.1"
+tokio-stream = "0.1"
+tokio-util = { version = "0.7", features = ["codec"] }
+
+# Testing
+mockall = "0.13"
+tempfile = "3"
+assert_matches = "1.5"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = "symbols"
+codegen-units = 1
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[profile.dev.package."*"]
+opt-level = 2

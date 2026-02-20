@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+package aion.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+// Audit entry type
+enum AuditAction {
+  AUDIT_ACTION_UNSPECIFIED = 0;
+  AUDIT_ACTION_EVENT_DETECTED = 1;
+  AUDIT_ACTION_AGENT_MOUNTED = 2;
+  AUDIT_ACTION_MCP_TOOL_CALLED = 3;
+  AUDIT_ACTION_PROPOSAL_CREATED = 4;
+  AUDIT_ACTION_PROPOSAL_VALIDATED = 5;
+  AUDIT_ACTION_PROPOSAL_APPROVED = 6;
+  AUDIT_ACTION_PROPOSAL_REJECTED = 7;
+  AUDIT_ACTION_EXECUTION_STARTED = 8;
+  AUDIT_ACTION_EXECUTION_DRY_RUN = 9;
+  AUDIT_ACTION_EXECUTION_CANARY = 10;
+  AUDIT_ACTION_EXECUTION_COMPLETED = 11;
+  AUDIT_ACTION_EXECUTION_ROLLED_BACK = 12;
+  AUDIT_ACTION_EXECUTION_FAILED = 13;
+}
+
+// A single entry in the hash-chain audit log
+message AuditEntry {
+  // Unique ID for this entry
+  string entry_id = 1;
+
+  // Sequence number (monotonically increasing)
+  uint64 sequence = 2;
+
+  // SHA-256 hash of the previous entry (empty string for the first entry)
+  string previous_hash = 3;
+
+  // SHA-256 hash of this entry's content
+  string content_hash = 4;
+
+  // Entry data
+  AuditAction action = 5;
+  google.protobuf.Timestamp timestamp = 6;
+
+  // Actor identification
+  string actor_type = 7;   // "system", "agent", "human"
+  string actor_id = 8;     // agent_id or user identifier
+
+  // References
+  string anomaly_id = 10;
+  string proposal_id = 11;
+  string invocation_id = 12;
+
+  // Details
+  string description = 15;
+  google.protobuf.Struct metadata = 16;
+}
+
+// Service for querying audit logs
+service AuditService {
+  rpc GetAuditLog(GetAuditLogRequest) returns (GetAuditLogResponse);
+  rpc VerifyIntegrity(VerifyIntegrityRequest) returns (VerifyIntegrityResponse);
+}
+
+message GetAuditLogRequest {
+  // Filter by anomaly or proposal
+  string anomaly_id = 1;
+  string proposal_id = 2;
+
+  // Pagination
+  uint64 from_sequence = 5;
+  int32 limit = 6;
+}
+
+message GetAuditLogResponse {
+  repeated AuditEntry entries = 1;
+  uint64 total_entries = 2;
+}
+
+message VerifyIntegrityRequest {
+  uint64 from_sequence = 1;
+  uint64 to_sequence = 2;
+}
+
+message VerifyIntegrityResponse {
+  bool is_valid = 1;
+  uint64 entries_verified = 2;
+  // If invalid, the first broken entry
+  uint64 first_broken_sequence = 3;
+  string error_message = 4;
+}

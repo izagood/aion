@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+package aion.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+// Risk level of a proposed action
+enum RiskLevel {
+  RISK_LEVEL_UNSPECIFIED = 0;
+  RISK_LEVEL_LOW = 1;
+  RISK_LEVEL_MEDIUM = 2;
+  RISK_LEVEL_HIGH = 3;
+}
+
+// Types of remediation actions
+enum ActionType {
+  ACTION_TYPE_UNSPECIFIED = 0;
+  ACTION_TYPE_RESCHEDULE_POD = 1;
+  ACTION_TYPE_RESTART_POD = 2;
+  ACTION_TYPE_ADJUST_RESOURCES = 3;
+  ACTION_TYPE_SCALE_DEPLOYMENT = 4;
+  ACTION_TYPE_CORDON_NODE = 5;
+  ACTION_TYPE_DRAIN_NODE = 6;
+  ACTION_TYPE_UNCORDON_NODE = 7;
+}
+
+// Status of a proposal through its lifecycle
+enum ProposalStatus {
+  PROPOSAL_STATUS_UNSPECIFIED = 0;
+  PROPOSAL_STATUS_PENDING = 1;
+  PROPOSAL_STATUS_VALIDATING = 2;
+  PROPOSAL_STATUS_APPROVED = 3;
+  PROPOSAL_STATUS_REJECTED = 4;
+  PROPOSAL_STATUS_EXECUTING = 5;
+  PROPOSAL_STATUS_COMPLETED = 6;
+  PROPOSAL_STATUS_FAILED = 7;
+  PROPOSAL_STATUS_ROLLED_BACK = 8;
+  PROPOSAL_STATUS_AWAITING_APPROVAL = 9;
+}
+
+// A remediation proposal from an AI agent
+message Proposal {
+  string proposal_id = 1;
+  string anomaly_id = 2;
+  string agent_id = 3;
+  string invocation_id = 4;
+
+  ActionType action_type = 5;
+  RiskLevel risk_level = 6;
+  ProposalStatus status = 7;
+
+  // Target resource
+  string target_namespace = 10;
+  string target_name = 11;
+  string target_kind = 12;  // Pod, Deployment, Node, etc.
+
+  // Agent's reasoning
+  string rationale = 15;
+  string analysis_summary = 16;
+
+  // Action parameters (JSON-like structure)
+  google.protobuf.Struct parameters = 20;
+
+  // Blast radius estimation
+  int32 estimated_blast_radius = 25;
+  bool is_reversible = 26;
+
+  // Timestamps
+  google.protobuf.Timestamp created_at = 30;
+  google.protobuf.Timestamp decided_at = 31;
+  google.protobuf.Timestamp executed_at = 32;
+
+  // Validation results
+  repeated ValidationResult validation_results = 35;
+}
+
+// Result of a single validation check
+message ValidationResult {
+  string validator_name = 1;
+  bool passed = 2;
+  string reason = 3;
+}

@@ -1,0 +1,71 @@
+# AION MCP Server - Lightweight build
+# Produces a minimal binary for the MCP Server (spawned by agents via stdio)
+
+# Stage 1: Build
+FROM rust:1.83-bookworm AS builder
+
+WORKDIR /build
+
+RUN apt-get update && apt-get install -y \
+    protobuf-compiler \
+    libssl-dev \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy workspace manifests for dependency caching
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+COPY .cargo .cargo
+COPY crates/aion-common/Cargo.toml crates/aion-common/Cargo.toml
+COPY crates/aion-observe/Cargo.toml crates/aion-observe/Cargo.toml
+COPY crates/aion-ebpf-common/Cargo.toml crates/aion-ebpf-common/Cargo.toml
+COPY crates/aion-mount/Cargo.toml crates/aion-mount/Cargo.toml
+COPY crates/aion-propose/Cargo.toml crates/aion-propose/Cargo.toml
+COPY crates/aion-validate/Cargo.toml crates/aion-validate/Cargo.toml
+COPY crates/aion-execute/Cargo.toml crates/aion-execute/Cargo.toml
+COPY crates/aion-capability/Cargo.toml crates/aion-capability/Cargo.toml
+COPY crates/aion-audit/Cargo.toml crates/aion-audit/Cargo.toml
+COPY crates/aion-api/Cargo.toml crates/aion-api/Cargo.toml
+COPY crates/aion-mcp-server/Cargo.toml crates/aion-mcp-server/Cargo.toml
+COPY crates/aion-agent/Cargo.toml crates/aion-agent/Cargo.toml
+COPY xtask/Cargo.toml xtask/Cargo.toml
+
+# Create dummy source files for dependency caching
+RUN mkdir -p crates/aion-common/src && echo "pub fn dummy() {}" > crates/aion-common/src/lib.rs && \
+    mkdir -p crates/aion-observe/src && echo "pub fn dummy() {}" > crates/aion-observe/src/lib.rs && \
+    mkdir -p crates/aion-ebpf-common/src && echo "#![no_std]" > crates/aion-ebpf-common/src/lib.rs && \
+    mkdir -p crates/aion-mount/src && echo "pub fn dummy() {}" > crates/aion-mount/src/lib.rs && \
+    mkdir -p crates/aion-propose/src && echo "pub fn dummy() {}" > crates/aion-propose/src/lib.rs && \
+    mkdir -p crates/aion-validate/src && echo "pub fn dummy() {}" > crates/aion-validate/src/lib.rs && \
+    mkdir -p crates/aion-execute/src && echo "pub fn dummy() {}" > crates/aion-execute/src/lib.rs && \
+    mkdir -p crates/aion-capability/src && echo "pub fn dummy() {}" > crates/aion-capability/src/lib.rs && \
+    mkdir -p crates/aion-audit/src && echo "pub fn dummy() {}" > crates/aion-audit/src/lib.rs && \
+    mkdir -p crates/aion-api/src && echo "pub fn dummy() {}" > crates/aion-api/src/lib.rs && \
+    mkdir -p crates/aion-mcp-server/src && echo "fn main() {}" > crates/aion-mcp-server/src/main.rs && \
+    mkdir -p crates/aion-agent/src && echo "fn main() {}" > crates/aion-agent/src/main.rs && \
+    mkdir -p xtask/src && echo "fn main() {}" > xtask/src/main.rs
+
+RUN cargo build --release -p aion-mcp-server 2>/dev/null || true
+
+# Copy actual source code
+COPY crates/ crates/
+COPY proto/ proto/
+COPY config/ config/
+COPY xtask/ xtask/
+
+RUN cargo build --release -p aion-mcp-server
+
+# Stage 2: Runtime (minimal)
+FROM debian:bookworm-slim AS runtime
+
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl3 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd -r aion && useradd -r -g aion -d /var/lib/aion -s /sbin/nologin aion
+
+COPY --from=builder /build/target/release/aion-mcp-server /usr/local/bin/aion-mcp-server
+
+USER aion
+
+ENTRYPOINT ["aion-mcp-server"]

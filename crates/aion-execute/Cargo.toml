@@ -1,0 +1,22 @@
+[package]
+name = "aion-execute"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Deterministic executor for Kubernetes operations"
+
+[dependencies]
+aion-common = { path = "../aion-common" }
+aion-propose = { path = "../aion-propose" }
+tokio = { workspace = true }
+kube = { workspace = true }
+k8s-openapi = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+async-trait = { workspace = true }
+
+[dev-dependencies]
+mockall = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }

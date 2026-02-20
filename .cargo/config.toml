@@ -1,0 +1,8 @@
+[build]
+target-dir = "target"
+
+[target.bpfel-unknown-none]
+rustflags = ["-C", "link-arg=--btf"]
+
+[env]
+AION_CONFIG_DIR = { value = "config", relative = true }

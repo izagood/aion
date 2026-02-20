@@ -1,0 +1,13 @@
+[package]
+name = "aion-ebpf"
+version = "0.1.0"
+edition = "2021"
+description = "eBPF programs for AION kernel-space observability (OOM kill tracepoint)"
+
+# This crate is NOT part of the workspace - it targets bpfel-unknown-none
+# Build via: cargo xtask ebpf-build
+
+[dependencies]
+aya-ebpf = "0.1"
+aya-log-ebpf = "0.1"
+aion-ebpf-common = { path = "../aion-ebpf-common" }

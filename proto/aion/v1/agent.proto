@@ -1,0 +1,131 @@
+syntax = "proto3";
+
+package aion.v1;
+
+import "google/protobuf/timestamp.proto";
+import "aion/v1/metrics.proto";
+import "aion/v1/proposal.proto";
+
+// Agent service — runs on each node as a DaemonSet
+service AgentService {
+  // Health and status
+  rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
+
+  // Events
+  rpc StreamEvents(StreamEventsRequest) returns (stream InfraEvent);
+  rpc GetRecentEvents(GetRecentEventsRequest) returns (GetRecentEventsResponse);
+
+  // Proposals
+  rpc ListProposals(ListProposalsRequest) returns (ListProposalsResponse);
+  rpc GetProposal(GetProposalRequest) returns (Proposal);
+  rpc ApproveProposal(ApproveProposalRequest) returns (ApproveProposalResponse);
+
+  // Manual trigger (for demo / debugging)
+  rpc TriggerAnalysis(TriggerAnalysisRequest) returns (TriggerAnalysisResponse);
+
+  // Agent management
+  rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
+}
+
+// ── Status ──
+
+message GetStatusRequest {}
+
+message GetStatusResponse {
+  string node_name = 1;
+  string version = 2;
+  google.protobuf.Timestamp uptime_since = 3;
+  int32 active_mounts = 4;
+  int32 total_events_processed = 5;
+  int32 total_proposals = 6;
+  AgentDaemonHealth health = 7;
+}
+
+enum AgentDaemonHealth {
+  AGENT_DAEMON_HEALTH_UNSPECIFIED = 0;
+  AGENT_DAEMON_HEALTH_HEALTHY = 1;
+  AGENT_DAEMON_HEALTH_DEGRADED = 2;
+  AGENT_DAEMON_HEALTH_UNHEALTHY = 3;
+}
+
+// ── Events ──
+
+message StreamEventsRequest {
+  // Filter by severity (empty = all)
+  repeated Severity min_severity = 1;
+}
+
+message GetRecentEventsRequest {
+  int32 limit = 1;
+  Severity min_severity = 2;
+}
+
+message GetRecentEventsResponse {
+  repeated InfraEvent events = 1;
+}
+
+// ── Proposals ──
+
+message ListProposalsRequest {
+  ProposalStatus status_filter = 1;
+  int32 limit = 2;
+}
+
+message ListProposalsResponse {
+  repeated Proposal proposals = 1;
+}
+
+message GetProposalRequest {
+  string proposal_id = 1;
+}
+
+message ApproveProposalRequest {
+  string proposal_id = 1;
+  string approved_by = 2;
+  string comment = 3;
+}
+
+message ApproveProposalResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// ── Trigger ──
+
+message TriggerAnalysisRequest {
+  // Simulated event kind for manual analysis
+  EventKind event_kind = 1;
+  string target_namespace = 2;
+  string target_pod = 3;
+}
+
+message TriggerAnalysisResponse {
+  string invocation_id = 1;
+  string message = 2;
+}
+
+// ── Agent Management ──
+
+message ListAgentsRequest {}
+
+message ListAgentsResponse {
+  repeated AgentInfo agents = 1;
+}
+
+message AgentInfo {
+  string agent_id = 1;
+  string display_name = 2;
+  string kind = 3;
+  bool enabled = 4;
+  int32 priority = 5;
+  repeated string specializations = 6;
+  AgentStatus status = 7;
+}
+
+enum AgentStatus {
+  AGENT_STATUS_UNSPECIFIED = 0;
+  AGENT_STATUS_IDLE = 1;
+  AGENT_STATUS_ACTIVE = 2;
+  AGENT_STATUS_ERROR = 3;
+  AGENT_STATUS_DISABLED = 4;
+}

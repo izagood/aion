@@ -1,0 +1,31 @@
+[package]
+name = "aion-agent"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "AION main daemon - pipeline orchestrator (observe → mount → validate → execute)"
+
+[[bin]]
+name = "aion-agent"
+path = "src/main.rs"
+
+[dependencies]
+aion-common = { path = "../aion-common" }
+aion-observe = { path = "../aion-observe" }
+aion-mount = { path = "../aion-mount" }
+aion-propose = { path = "../aion-propose" }
+aion-validate = { path = "../aion-validate" }
+aion-execute = { path = "../aion-execute" }
+aion-capability = { path = "../aion-capability" }
+aion-audit = { path = "../aion-audit" }
+aion-api = { path = "../aion-api" }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+config = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
