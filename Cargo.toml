@@ -14,6 +14,7 @@ members = [
     "crates/aion-api",
     "crates/aion-mcp-server",
     "crates/aion-agent",
+    "crates/aion-cli",
     "xtask",
 ]
 
@@ -45,6 +46,13 @@ tonic = "0.12"
 tonic-build = "0.12"
 prost = "0.13"
 prost-types = "0.13"
+
+# CLI
+clap = { version = "4", features = ["derive", "env"] }
+colored = "2"
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 
 # HTTP / REST
 axum = { version = "0.8" }

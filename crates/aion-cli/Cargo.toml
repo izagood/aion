@@ -1,0 +1,19 @@
+[package]
+name = "aion-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "CLI client for AION autonomous infrastructure OS"
+
+[[bin]]
+name = "aion"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { workspace = true, features = ["rt", "macros"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+clap = { workspace = true }
+reqwest = { workspace = true }
+colored = { workspace = true }
