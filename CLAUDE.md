@@ -37,6 +37,7 @@ as subprocesses, and performs autonomous remediation through MCP (Model Context 
 - `aion-audit` — Hash-chain audit logging
 - `aion-api` — gRPC + REST API server
 - `aion-mcp-server` — Standalone MCP server binary (spawned by agents)
+- `aion-cli` — CLI client binary (`aion` command, pure HTTP client, no aion-common dependency)
 - `aion-agent` — Main daemon binary
 
 ## Testing
