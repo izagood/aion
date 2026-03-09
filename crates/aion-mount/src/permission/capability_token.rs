@@ -162,4 +162,93 @@ mod tests {
         );
         assert!(token.is_valid());
     }
+
+    #[test]
+    fn test_denied_namespace_kube_system() {
+        let token = CapabilityToken::issue(
+            AgentId::new("claude"),
+            AnomalyId::new("a-1"),
+            Severity::Critical,
+            120,
+        );
+        // kube-system is in the default denied list
+        assert!(!token.is_namespace_allowed("kube-system"));
+        // Other namespaces should be allowed
+        assert!(token.is_namespace_allowed("default"));
+        assert!(token.is_namespace_allowed("production"));
+    }
+
+    #[test]
+    fn test_allowed_namespaces_restrict() {
+        let mut token = CapabilityToken::issue(
+            AgentId::new("claude"),
+            AnomalyId::new("a-1"),
+            Severity::Warning,
+            120,
+        );
+        // Restrict to only "prod" namespace
+        token.allowed_namespaces = vec!["prod".to_string()];
+
+        assert!(token.is_namespace_allowed("prod"));
+        assert!(!token.is_namespace_allowed("staging"));
+        assert!(!token.is_namespace_allowed("default"));
+        // kube-system is still denied (denied takes precedence)
+        assert!(!token.is_namespace_allowed("kube-system"));
+    }
+
+    #[test]
+    fn test_risk_high_denied_for_warning() {
+        let token = CapabilityToken::issue(
+            AgentId::new("claude"),
+            AnomalyId::new("a-1"),
+            Severity::Warning, // Medium risk max
+            120,
+        );
+        assert!(token.is_risk_authorized(RiskLevel::Low));
+        assert!(token.is_risk_authorized(RiskLevel::Medium));
+        assert!(!token.is_risk_authorized(RiskLevel::High));
+    }
+
+    #[test]
+    fn test_blast_radius_exceeded() {
+        let mut token = CapabilityToken::issue(
+            AgentId::new("claude"),
+            AnomalyId::new("a-1"),
+            Severity::Info,
+            120,
+        );
+        token.max_blast_radius = 5;
+
+        assert!(token.is_blast_radius_allowed(5));  // exactly at limit
+        assert!(token.is_blast_radius_allowed(3));  // below limit
+        assert!(!token.is_blast_radius_allowed(10)); // exceeds limit
+    }
+
+    #[test]
+    fn test_info_severity_allows_direct_execution() {
+        let token = CapabilityToken::issue(
+            AgentId::new("claude"),
+            AnomalyId::new("a-1"),
+            Severity::Info,
+            120,
+        );
+        assert!(token.allow_direct_execution);
+
+        // Warning and Critical should not allow direct execution
+        let warning_token = CapabilityToken::issue(
+            AgentId::new("claude"),
+            AnomalyId::new("a-2"),
+            Severity::Warning,
+            120,
+        );
+        assert!(!warning_token.allow_direct_execution);
+
+        let critical_token = CapabilityToken::issue(
+            AgentId::new("claude"),
+            AnomalyId::new("a-3"),
+            Severity::Critical,
+            120,
+        );
+        assert!(!critical_token.allow_direct_execution);
+    }
 }

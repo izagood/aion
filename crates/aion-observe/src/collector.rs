@@ -87,4 +87,92 @@ mod tests {
         let e2 = rx2.recv().await.unwrap();
         assert_eq!(e1.id, e2.id);
     }
+
+    #[tokio::test]
+    async fn test_event_bus_no_subscribers() {
+        let bus = EventBus::new(16);
+        let sender = bus.sender();
+
+        let node = NodeHandle::new("node-1", "uid-1");
+        let process = ProcessHandle::new(1, "test", 0);
+        let data = OomEventData {
+            pid: 1,
+            comm: "test".to_string(),
+            total_pages: 100,
+            rss_pages: 50,
+            oom_score_adj: 0,
+            memory_limit_bytes: 1000,
+            memory_usage_bytes: 999,
+        };
+        let event = InfraEvent::oom_kill(node, None, process, data);
+
+        // EventBus keeps an internal _receiver, so send() will succeed even
+        // without explicit subscribers. The key property is: no panic occurs,
+        // and the event is silently consumed by the internal receiver.
+        let result = sender.send(event);
+        assert!(result.is_ok(), "send should succeed because EventBus holds an internal receiver");
+    }
+
+    #[tokio::test]
+    async fn test_event_bus_subscribe_after_send() {
+        let bus = EventBus::new(16);
+        let sender = bus.sender();
+
+        let node = NodeHandle::new("node-1", "uid-1");
+        let process = ProcessHandle::new(1, "test", 0);
+        let data = OomEventData {
+            pid: 1,
+            comm: "test".to_string(),
+            total_pages: 100,
+            rss_pages: 50,
+            oom_score_adj: 0,
+            memory_limit_bytes: 1000,
+            memory_usage_bytes: 999,
+        };
+        let event = InfraEvent::oom_kill(node, None, process, data);
+
+        // Subscribe first to make send succeed, then subscribe after
+        let _rx_before = bus.subscribe();
+        sender.send(event).unwrap();
+
+        // Subscribe after send — should not receive the past event
+        let mut rx_after = bus.subscribe();
+
+        // Use try_recv to check that no event is available
+        let result = rx_after.try_recv();
+        assert!(result.is_err()); // No message available
+    }
+
+    #[tokio::test]
+    async fn test_event_bus_multiple_subscribers() {
+        let bus = EventBus::new(16);
+        let sender = bus.sender();
+        let mut rx1 = bus.subscribe();
+        let mut rx2 = bus.subscribe();
+        let mut rx3 = bus.subscribe();
+
+        let node = NodeHandle::new("node-1", "uid-1");
+        let process = ProcessHandle::new(42, "nginx", 0);
+        let data = OomEventData {
+            pid: 42,
+            comm: "nginx".to_string(),
+            total_pages: 200,
+            rss_pages: 100,
+            oom_score_adj: 0,
+            memory_limit_bytes: 2000,
+            memory_usage_bytes: 1999,
+        };
+        let event = InfraEvent::oom_kill(node, None, process, data);
+
+        sender.send(event).unwrap();
+
+        let e1 = rx1.recv().await.unwrap();
+        let e2 = rx2.recv().await.unwrap();
+        let e3 = rx3.recv().await.unwrap();
+
+        // All subscribers should receive the same event
+        assert_eq!(e1.id, e2.id);
+        assert_eq!(e2.id, e3.id);
+        assert_eq!(e1.kind, crate::event::EventKind::OomKill);
+    }
 }

@@ -333,4 +333,61 @@ mod tests {
         let content = std::fs::read_to_string(&path).unwrap();
         assert!(content.contains("event_detected"));
     }
+
+    #[test]
+    fn test_empty_chain_verification() {
+        let logger = AuditLogger::new("/tmp/test-audit-empty");
+        let result = logger.verify_integrity();
+        assert!(result.is_valid);
+        assert_eq!(result.entries_verified, 0);
+        assert!(result.first_broken_sequence.is_none());
+    }
+
+    #[test]
+    fn test_single_entry_integrity() {
+        let logger = AuditLogger::new("/tmp/test-audit-single");
+        logger.log(AuditAction::EventDetected, "system", "test", "single entry");
+
+        let result = logger.verify_integrity();
+        assert!(result.is_valid);
+        assert_eq!(result.entries_verified, 1);
+
+        let entries = logger.entries();
+        assert_eq!(entries[0].sequence, 1);
+        assert_eq!(entries[0].previous_hash, "genesis");
+        assert!(!entries[0].content_hash.is_empty());
+    }
+
+    #[test]
+    fn test_tamper_middle_entry() {
+        let logger = AuditLogger::new("/tmp/test-audit-tamper-mid");
+        logger.log(AuditAction::EventDetected, "system", "watcher", "event 1");
+        logger.log(AuditAction::AgentMounted, "system", "pipeline", "event 2");
+        logger.log(AuditAction::ProposalCreated, "agent", "claude", "event 3");
+
+        // Tamper with the second entry
+        {
+            let mut state = logger.state.lock().unwrap();
+            state.entries[1].description = "TAMPERED MIDDLE".to_string();
+        }
+
+        let result = logger.verify_integrity();
+        assert!(!result.is_valid);
+        assert_eq!(result.first_broken_sequence, Some(2));
+        assert!(result.error.as_ref().unwrap().contains("Content hash mismatch"));
+    }
+
+    #[tokio::test]
+    async fn test_flush_empty_noop() {
+        let dir = tempfile::tempdir().unwrap();
+        let logger = AuditLogger::new(dir.path());
+
+        // Flushing empty logger should be a no-op
+        let result = logger.flush_to_disk().await;
+        assert!(result.is_ok());
+
+        // audit.jsonl file should not be created
+        let path = dir.path().join("audit.jsonl");
+        assert!(!path.exists());
+    }
 }

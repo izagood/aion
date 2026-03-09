@@ -390,4 +390,60 @@ log_level = "trace"
         let config = AionConfig::from_file(&path).unwrap();
         assert_eq!(config.daemon.log_level, "trace");
     }
+
+    #[test]
+    fn test_invalid_port_type() {
+        let toml_str = r#"
+[daemon]
+grpc_port = "not_a_number"
+"#;
+        let result = AionConfig::from_str(toml_str);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, AionError::Config(_)));
+    }
+
+    #[test]
+    fn test_partial_config_uses_defaults() {
+        let toml_str = r#"
+[daemon]
+log_level = "debug"
+"#;
+        let config = AionConfig::from_str(toml_str).unwrap();
+        assert_eq!(config.daemon.log_level, "debug");
+        // Rest should be defaults
+        assert_eq!(config.daemon.grpc_port, 50051);
+        assert_eq!(config.daemon.rest_port, 8080);
+        assert!(config.observe.enable_ebpf);
+        assert_eq!(config.pipeline.max_concurrent_mounts, 3);
+    }
+
+    #[test]
+    fn test_empty_toml_uses_all_defaults() {
+        let config = AionConfig::from_str("").unwrap();
+        assert_eq!(config.daemon.listen_addr, "0.0.0.0");
+        assert_eq!(config.daemon.grpc_port, 50051);
+        assert_eq!(config.daemon.rest_port, 8080);
+        assert_eq!(config.daemon.log_level, "info");
+        assert_eq!(config.daemon.audit_dir, "/var/lib/aion/audit");
+        assert!(config.observe.enable_ebpf);
+        assert!(config.observe.enable_cgroup);
+        assert!(config.observe.enable_kube_watcher);
+        assert_eq!(config.observe.poll_interval_secs, 10);
+        assert_eq!(config.pipeline.max_concurrent_mounts, 3);
+        assert_eq!(config.pipeline.canary_duration_secs, 30);
+    }
+
+    #[test]
+    fn test_agents_config_missing_global() {
+        let toml_str = r#"
+[[agents]]
+id = "claude-primary"
+kind = "claude_code"
+binary_path = "/usr/local/bin/claude"
+"#;
+        // AgentsConfig requires [global] with mcp_server_binary (no default)
+        let result = AgentsConfig::from_str(toml_str);
+        assert!(result.is_err());
+    }
 }

@@ -328,6 +328,271 @@ max_concurrent = 3
     }
 
     #[test]
+    fn test_parse_proposal_empty_string() {
+        let descriptor = AgentDescriptor {
+            id: AgentId::new("claude"),
+            kind: AgentKind::ClaudeCode,
+            display_name: "Claude".to_string(),
+            binary_path: "/usr/local/bin/claude".to_string(),
+            model: "sonnet".to_string(),
+            enabled: true,
+            priority: 1,
+            max_tokens: 100000,
+            timeout_secs: 120,
+            max_cost_usd: 0.50,
+            specializations: vec![],
+            capabilities: vec![],
+            env: HashMap::new(),
+        };
+        let token = CapabilityToken::issue(
+            AgentId::new("claude"),
+            "a-1".into(),
+            Severity::Critical,
+            120,
+        );
+        let result = MountPipeline::parse_proposal("", &descriptor, &token);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_proposal_invalid_json() {
+        let descriptor = AgentDescriptor {
+            id: AgentId::new("claude"),
+            kind: AgentKind::ClaudeCode,
+            display_name: "Claude".to_string(),
+            binary_path: "/usr/local/bin/claude".to_string(),
+            model: "sonnet".to_string(),
+            enabled: true,
+            priority: 1,
+            max_tokens: 100000,
+            timeout_secs: 120,
+            max_cost_usd: 0.50,
+            specializations: vec![],
+            capabilities: vec![],
+            env: HashMap::new(),
+        };
+        let token = CapabilityToken::issue(
+            AgentId::new("claude"),
+            "a-1".into(),
+            Severity::Critical,
+            120,
+        );
+        let result = MountPipeline::parse_proposal("{not json", &descriptor, &token);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_proposal_partial_json() {
+        let descriptor = AgentDescriptor {
+            id: AgentId::new("claude"),
+            kind: AgentKind::ClaudeCode,
+            display_name: "Claude".to_string(),
+            binary_path: "/usr/local/bin/claude".to_string(),
+            model: "sonnet".to_string(),
+            enabled: true,
+            priority: 1,
+            max_tokens: 100000,
+            timeout_secs: 120,
+            max_cost_usd: 0.50,
+            specializations: vec![],
+            capabilities: vec![],
+            env: HashMap::new(),
+        };
+        let token = CapabilityToken::issue(
+            AgentId::new("claude"),
+            "a-1".into(),
+            Severity::Critical,
+            120,
+        );
+        // Valid JSON but missing required Proposal fields
+        let result = MountPipeline::parse_proposal(r#"{"action": "restart"}"#, &descriptor, &token);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_proposal_json_in_mixed_output() {
+        let proposal = Proposal::new(
+            "a-1".into(),
+            "claude".into(),
+            "inv-1".into(),
+            aion_propose::ActionType::RestartPod,
+            "default".into(),
+            "my-pod",
+            "Pod",
+            "Pod should be restarted for recovery",
+        );
+        let proposal_json = serde_json::to_string(&proposal).unwrap();
+        let mixed_output = format!(
+            "Analyzing infrastructure...\nChecking pod status...\n{}\nDone.",
+            proposal_json
+        );
+
+        let descriptor = AgentDescriptor {
+            id: AgentId::new("claude"),
+            kind: AgentKind::ClaudeCode,
+            display_name: "Claude".to_string(),
+            binary_path: "/usr/local/bin/claude".to_string(),
+            model: "sonnet".to_string(),
+            enabled: true,
+            priority: 1,
+            max_tokens: 100000,
+            timeout_secs: 120,
+            max_cost_usd: 0.50,
+            specializations: vec![],
+            capabilities: vec![],
+            env: HashMap::new(),
+        };
+        let token = CapabilityToken::issue(
+            AgentId::new("claude"),
+            "a-1".into(),
+            Severity::Critical,
+            120,
+        );
+
+        let result = MountPipeline::parse_proposal(&mixed_output, &descriptor, &token);
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().target_name, "my-pod");
+    }
+
+    #[tokio::test]
+    async fn test_execute_no_agent_available() {
+        let toml = r#"
+[global]
+daily_budget_usd = 50.0
+default_timeout_secs = 120
+mcp_server_binary = "./target/release/aion-mcp-server"
+
+[permission_policy]
+low_risk = "validate_and_execute"
+medium_risk = "validate_and_execute"
+high_risk = "require_approval"
+
+[[agents]]
+id = "claude-primary"
+kind = "claude_code"
+display_name = "Claude Code"
+binary_path = "/usr/local/bin/claude"
+model = "sonnet"
+enabled = true
+priority = 1
+max_cost_usd = 0.50
+specializations = ["oom_analysis"]
+capabilities = ["oom_analysis"]
+
+[budget.claude_code]
+max_invocations_per_hour = 20
+max_concurrent = 3
+"#;
+        let config = AgentsConfig::from_str(toml).unwrap();
+        let pipeline = MountPipeline::new(&config);
+
+        // Use criteria that won't match any agent
+        let criteria = SelectionCriteria {
+            required_capabilities: vec!["nonexistent_capability_xyz".to_string()],
+            preferred_specializations: vec![],
+            max_cost_usd: None,
+        };
+
+        let result = pipeline.execute("a-1", Severity::Warning, &criteria, "test prompt").await;
+        assert!(matches!(result, MountResult::NoAgentAvailable));
+    }
+
+    #[tokio::test]
+    async fn test_execute_budget_exceeded() {
+        let toml = r#"
+[global]
+daily_budget_usd = 0.01
+default_timeout_secs = 120
+mcp_server_binary = "./target/release/aion-mcp-server"
+
+[permission_policy]
+low_risk = "validate_and_execute"
+medium_risk = "validate_and_execute"
+high_risk = "require_approval"
+
+[[agents]]
+id = "claude-primary"
+kind = "claude_code"
+display_name = "Claude Code"
+binary_path = "/nonexistent/binary/path"
+model = "sonnet"
+enabled = true
+priority = 1
+max_cost_usd = 0.50
+specializations = ["oom_analysis"]
+capabilities = ["infra_analysis"]
+
+[budget.claude_code]
+max_invocations_per_hour = 20
+max_concurrent = 3
+"#;
+        let config = AgentsConfig::from_str(toml).unwrap();
+        let pipeline = MountPipeline::new(&config);
+        pipeline.init_budgets(&config);
+
+        let criteria = SelectionCriteria {
+            required_capabilities: vec!["infra_analysis".to_string()],
+            preferred_specializations: vec![],
+            max_cost_usd: None,
+        };
+
+        // Budget is 0.01 but agent costs 0.50, so budget check fails for all fallbacks
+        let result = pipeline.execute("a-1", Severity::Warning, &criteria, "test").await;
+        assert!(matches!(result, MountResult::NoAgentAvailable));
+    }
+
+    #[test]
+    fn test_mount_result_variants_debug() {
+        let approved = MountResult::Approved(Proposal::new(
+            "a-1".into(), "claude".into(), "inv-1".into(),
+            aion_propose::ActionType::RestartPod, "default".into(),
+            "pod-1", "Pod", "test rationale",
+        ));
+        assert!(format!("{:?}", approved).contains("Approved"));
+
+        let no_agent = MountResult::NoAgentAvailable;
+        assert!(format!("{:?}", no_agent).contains("NoAgentAvailable"));
+
+        let budget = MountResult::BudgetExceeded("daily limit".to_string());
+        assert!(format!("{:?}", budget).contains("BudgetExceeded"));
+
+        let agent_failed = MountResult::AgentFailed {
+            agent_id: AgentId::new("claude"),
+            error: "spawn error".to_string(),
+        };
+        assert!(format!("{:?}", agent_failed).contains("AgentFailed"));
+
+        let rejected = MountResult::Rejected {
+            proposal: Proposal::new(
+                "a-1".into(), "claude".into(), "inv-1".into(),
+                aion_propose::ActionType::RestartPod, "default".into(),
+                "pod-1", "Pod", "test rationale",
+            ),
+            reasons: vec!["policy violation".to_string()],
+        };
+        assert!(format!("{:?}", rejected).contains("Rejected"));
+
+        let awaiting = MountResult::AwaitingApproval(Proposal::new(
+            "a-1".into(), "claude".into(), "inv-1".into(),
+            aion_propose::ActionType::DrainNode, "default".into(),
+            "node-1", "Node", "test rationale",
+        ));
+        assert!(format!("{:?}", awaiting).contains("AwaitingApproval"));
+    }
+
+    #[test]
+    fn test_pipeline_init_budgets() {
+        let config = test_config();
+        let pipeline = MountPipeline::new(&config);
+        pipeline.init_budgets(&config);
+
+        // After init_budgets, the governor should have claude_code registered
+        // Verify by trying to acquire budget for that kind
+        let result = pipeline.governor.try_acquire("claude_code", 0.10);
+        assert!(result.is_ok());
+    }
+
+    #[test]
     fn test_parse_proposal_from_json() {
         let proposal_json = serde_json::to_string(&Proposal::new(
             "a-1".into(),

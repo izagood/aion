@@ -209,6 +209,16 @@ impl Default for DeterministicExecutor {
     }
 }
 
+#[cfg(test)]
+impl DeterministicExecutor {
+    /// Create an executor with no registered action executors (for testing UnsupportedAction).
+    pub fn empty() -> Self {
+        Self {
+            executors: HashMap::new(),
+        }
+    }
+}
+
 // ── Action Executors ──
 // In production these would call kube-rs APIs.
 // For MVP, they perform validation and log actions.
@@ -831,5 +841,92 @@ mod tests {
         let json = serde_json::to_string(&result).unwrap();
         let parsed: ExecutionResult = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.final_stage, ExecutionStage::Completed);
+    }
+
+    #[tokio::test]
+    async fn test_unsupported_action_type() {
+        let executor = DeterministicExecutor::empty();
+        let mut proposal = make_proposal(ActionType::RestartPod, "Pod", "my-pod");
+
+        let result = executor.execute(&mut proposal).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, ExecutionError::UnsupportedAction(_)));
+        assert!(err.to_string().contains("RestartPod"));
+    }
+
+    #[tokio::test]
+    async fn test_uncordon_node_success() {
+        let executor = DeterministicExecutor::new();
+        let mut proposal = make_proposal(ActionType::UncordonNode, "Node", "worker-1");
+
+        let result = executor.execute(&mut proposal).await.unwrap();
+        assert!(result.is_success());
+        assert_eq!(result.final_stage, ExecutionStage::Completed);
+        assert_eq!(result.stages.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn test_uncordon_wrong_target_kind() {
+        let executor = DeterministicExecutor::new();
+        let mut proposal = make_proposal(ActionType::UncordonNode, "Pod", "my-pod");
+
+        let result = executor.execute(&mut proposal).await.unwrap();
+        assert!(!result.is_success());
+        assert_eq!(result.final_stage, ExecutionStage::Failed);
+        assert!(result.stages[0].message.contains("Expected target kind 'Node'"));
+    }
+
+    #[tokio::test]
+    async fn test_restart_pod_wrong_target() {
+        let executor = DeterministicExecutor::new();
+        let mut proposal = make_proposal(ActionType::RestartPod, "Node", "worker-1");
+
+        let result = executor.execute(&mut proposal).await.unwrap();
+        assert!(!result.is_success());
+        assert_eq!(result.final_stage, ExecutionStage::Failed);
+        assert!(result.stages[0].message.contains("Expected target kind 'Pod'"));
+    }
+
+    #[tokio::test]
+    async fn test_reschedule_pod_wrong_target() {
+        let executor = DeterministicExecutor::new();
+        let mut proposal = make_proposal(ActionType::ReschedulePod, "Deployment", "my-deploy");
+
+        let result = executor.execute(&mut proposal).await.unwrap();
+        assert!(!result.is_success());
+        assert_eq!(result.final_stage, ExecutionStage::Failed);
+    }
+
+    #[tokio::test]
+    async fn test_drain_node_wrong_target() {
+        let executor = DeterministicExecutor::new();
+        let mut proposal = make_proposal(ActionType::DrainNode, "Pod", "my-pod");
+
+        let result = executor.execute(&mut proposal).await.unwrap();
+        assert!(!result.is_success());
+        assert_eq!(result.final_stage, ExecutionStage::Failed);
+    }
+
+    #[test]
+    fn test_execution_result_rolled_back_not_success() {
+        let result = ExecutionResult {
+            proposal_id: "p-1".to_string(),
+            final_stage: ExecutionStage::RolledBack,
+            stages: vec![],
+            rolled_back: true,
+        };
+        assert!(!result.is_success());
+    }
+
+    #[test]
+    fn test_execution_result_failed_stage() {
+        let result = ExecutionResult {
+            proposal_id: "p-1".to_string(),
+            final_stage: ExecutionStage::Failed,
+            stages: vec![],
+            rolled_back: false,
+        };
+        assert!(!result.is_success());
     }
 }

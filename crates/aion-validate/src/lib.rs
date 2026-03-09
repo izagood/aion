@@ -322,4 +322,82 @@ mod tests {
         let result = v.validate(&p);
         assert!(!result.passed);
     }
+
+    #[test]
+    fn test_resource_bounds_memory_exceeds_64gib() {
+        let v = ResourceBoundsValidator;
+        let mut p = test_proposal("default", 1);
+        // 65 GiB in bytes — exceeds 64 GiB limit
+        p.parameters.insert(
+            "memory_limit_bytes".to_string(),
+            serde_json::json!(65_u64 * 1024 * 1024 * 1024),
+        );
+        let result = v.validate(&p);
+        assert!(!result.passed);
+        assert!(result.reason.contains("64 GiB"));
+    }
+
+    #[test]
+    fn test_resource_bounds_memory_at_boundary() {
+        let v = ResourceBoundsValidator;
+        let mut p = test_proposal("default", 1);
+        // Exactly 64 GiB — should pass (<=)
+        p.parameters.insert(
+            "memory_limit_bytes".to_string(),
+            serde_json::json!(64_u64 * 1024 * 1024 * 1024),
+        );
+        let result = v.validate(&p);
+        assert!(result.passed);
+    }
+
+    #[test]
+    fn test_deny_list_action_blocked() {
+        let v = DenyListValidator {
+            denied_actions: vec!["RestartPod".to_string()],
+            denied_targets: vec![],
+        };
+        let mut p = test_proposal("default", 1);
+        // Change action type to RestartPod
+        p.action_type = ActionType::RestartPod;
+        let result = v.validate(&p);
+        assert!(!result.passed);
+        assert!(result.reason.contains("deny list"));
+    }
+
+    #[test]
+    fn test_combined_failures_reported() {
+        let mut chain = PolicyChain::new();
+        chain.add(Box::new(NamespaceScopeValidator::default()));
+        chain.add(Box::new(BlastRadiusValidator { max_radius: 5 }));
+
+        // Both namespace (kube-system) and blast radius (100) should fail
+        let p = test_proposal("kube-system", 100);
+        let (passed, results) = chain.validate_all(&p);
+        assert!(!passed);
+        let failures: Vec<_> = results.iter().filter(|r| !r.passed).collect();
+        assert_eq!(failures.len(), 2);
+    }
+
+    #[test]
+    fn test_empty_chain_passes_all() {
+        let chain = PolicyChain::new();
+        let p = test_proposal("kube-system", 999);
+        let (passed, results) = chain.validate_all(&p);
+        assert!(passed);
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_blast_radius_at_boundary() {
+        let v = BlastRadiusValidator { max_radius: 50 };
+        // Exactly at boundary — should pass (<=)
+        let p = test_proposal("default", 50);
+        let result = v.validate(&p);
+        assert!(result.passed);
+
+        // One above — should fail
+        let p2 = test_proposal("default", 51);
+        let result2 = v.validate(&p2);
+        assert!(!result2.passed);
+    }
 }
