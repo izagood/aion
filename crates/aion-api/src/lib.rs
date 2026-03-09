@@ -391,4 +391,85 @@ max_concurrent = 3
         assert!(result.accepted);
         assert!(result.anomaly_id.is_some());
     }
+
+    #[tokio::test]
+    async fn test_audit_verify_empty_valid() {
+        let state = test_state();
+        // Don't add any audit entries — empty logger
+        let app = build_router(state);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/audit/verify")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let result: IntegrityResult = serde_json::from_slice(&body).unwrap();
+        assert!(result.is_valid);
+        assert_eq!(result.entries_verified, 0);
+    }
+
+    #[tokio::test]
+    async fn test_get_status_returns_json() {
+        let state = test_state();
+        let app = build_router(state);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/status")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        // Verify it's valid JSON
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["status"], "running");
+        assert!(json["version"].is_string());
+        assert!(json["agents_registered"].is_number());
+    }
+
+    #[tokio::test]
+    async fn test_trigger_with_anomaly_id() {
+        let state = test_state();
+        let app = build_router(state);
+
+        let trigger = TriggerRequest {
+            event_type: "memory_pressure".to_string(),
+            namespace: Some("production".to_string()),
+            target: Some("api-server".to_string()),
+            description: None, // Test default description generation
+        };
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/trigger")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&trigger).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let result: TriggerResponse = serde_json::from_slice(&body).unwrap();
+        assert!(result.accepted);
+        assert!(result.anomaly_id.is_some());
+        // Verify anomaly_id is a valid UUID
+        let anomaly_id = result.anomaly_id.unwrap();
+        assert!(uuid::Uuid::parse_str(&anomaly_id).is_ok());
+    }
 }

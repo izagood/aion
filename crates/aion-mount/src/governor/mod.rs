@@ -190,4 +190,76 @@ mod tests {
         let result = governor.try_acquire("claude_code", 0.10);
         assert!(result.is_ok());
     }
+
+    #[test]
+    fn test_hourly_limit_reached() {
+        let governor = BudgetGovernor::new(100.0);
+        governor.register_kind("claude_code", 2, 10);
+
+        let _g1 = governor.try_acquire("claude_code", 0.01).unwrap();
+        drop(_g1);
+        let _g2 = governor.try_acquire("claude_code", 0.01).unwrap();
+        drop(_g2);
+
+        // Third invocation should hit hourly limit
+        let result = governor.try_acquire("claude_code", 0.01);
+        assert!(matches!(result, Err(BudgetError::HourlyLimitReached { .. })));
+    }
+
+    #[test]
+    fn test_unregistered_kind_no_limit() {
+        let governor = BudgetGovernor::new(100.0);
+        // Don't register any kind-specific limits
+
+        let result = governor.try_acquire("unknown_kind", 0.50);
+        assert!(result.is_ok());
+
+        // Should still deduct from daily budget
+        assert!((governor.daily_remaining() - 99.50).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_zero_budget_rejects_all() {
+        let governor = BudgetGovernor::new(0.0);
+        governor.register_kind("claude_code", 100, 10);
+
+        let result = governor.try_acquire("claude_code", 0.01);
+        assert!(matches!(result, Err(BudgetError::DailyBudgetExceeded { .. })));
+    }
+
+    #[test]
+    fn test_guard_drop_releases_slot() {
+        let governor = BudgetGovernor::new(100.0);
+        governor.register_kind("claude_code", 100, 1); // max 1 concurrent
+
+        let g1 = governor.try_acquire("claude_code", 0.10).unwrap();
+
+        // Should fail — concurrent limit reached
+        let result = governor.try_acquire("claude_code", 0.10);
+        assert!(matches!(result, Err(BudgetError::ConcurrentLimitReached { .. })));
+
+        // Drop guard, freeing the slot
+        drop(g1);
+
+        // Now should succeed
+        let result = governor.try_acquire("claude_code", 0.10);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_multi_kind_independent() {
+        let governor = BudgetGovernor::new(100.0);
+        governor.register_kind("claude_code", 1, 10);
+        governor.register_kind("codex_cli", 1, 10);
+
+        // Exhaust claude_code hourly limit
+        let _g1 = governor.try_acquire("claude_code", 0.10).unwrap();
+        drop(_g1);
+        let result = governor.try_acquire("claude_code", 0.10);
+        assert!(matches!(result, Err(BudgetError::HourlyLimitReached { .. })));
+
+        // codex_cli should still work independently
+        let result = governor.try_acquire("codex_cli", 0.10);
+        assert!(result.is_ok());
+    }
 }
